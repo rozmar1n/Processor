@@ -1,0 +1,7 @@
+*.o
+*.txt
+proc
+test*
+*.log
+onegin/
+Stack/
