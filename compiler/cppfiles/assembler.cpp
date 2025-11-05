@@ -1,22 +1,22 @@
 #include"../headers/assembler.h"
-//TODO: сделать битовые маски
-//TODO: сделать видеопамять
-void MakeMachCode(const char* ProgramFile, const char* cmdFile, const char* logFile, int iter, labelArray_t* labels)
+//TODO вынести 100000 в const и сделать степенью двойки
+
+
+
+bool MakeMachCode(const char* ProgramFile, const char* cmdFile, const char* logFile, int iter, labelArray_t* labels)
 {      
 
     FILE* machFile = fopen(logFile, "w");
     if (machFile == 0)
     {
         fprintf(stderr, "We couldn't open you logFile!!!\n");
-        return;
+        return 0;
     }
 
     long temp_size;
     char* cmd_buffer = PutText(ProgramFile, &temp_size);
     int amountOfCommands = 0;
-//fprintf(stderr, "temp_size: %ld\n", temp_size);
-    Strings* cmds_indexes = MakeIndex(cmd_buffer, &amountOfCommands, temp_size);
-//fprintf(stderr, "AmountOfComands: %d\n", amountOfCommands);
+    Line* cmds_indexes = MakeIndex(cmd_buffer, &amountOfCommands, temp_size);
     int asmIp = 0;
 
     fprintf(machFile, "%s\n", "ROST");
@@ -37,43 +37,27 @@ void MakeMachCode(const char* ProgramFile, const char* cmdFile, const char* logF
     int err = 1;
     u_int32_t nCommands = 0;
 
+
+
+
 fprintf(stderr, "before while\n");
     for(int i = 0; i < amountOfCommands; i++)
     {
         if(err && asmIp < amountOfCommands)
         {
-            cmd = cmds_indexes[asmIp++].string_start; 
-
+            cmd = cmds_indexes[asmIp++].line_start; 
+            
             fprintf(stderr, "%s\n", cmd);
             if (strcmp(cmd, "push") == 0)
             {
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
                 err = WritePushArgs(cmd, machFile, cmd_array, &cmd_counter, &nCommands);
                 continue;
             }
 
             if (strcmp(cmd, "pop") == 0)
             {
-                // if(err) err = fprintf(machFile, "%d ", cmd_pop);
-
-                // cmd_array[cmd_counter] = (u_int32_t)cmd_pop;
-                //     cmd_counter++;
-
-                cmd = cmds_indexes[asmIp++].string_start;
-
-                // int reg = -1;
-                // reg = FillReg(cmd);
-                // if (reg != -1)
-                // {
-                //     fprintf(machFile, "%d ", reg);
-                //     cmd_array[cmd_counter] = reg;
-                //     cmd_counter++;
-                // }
-                // else
-                // {
-                //     fprintf(stderr, "UNDEFINED COMMAND!!!\n");
-                // }
-                // nCommands += 2;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 err = WritePopArgs(cmd, machFile, cmd_array, &cmd_counter, &nCommands);
                 if(err == -1) err = 0;
@@ -180,7 +164,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_jmp);
                 long long temp_cmd = cmd_jmp;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -203,7 +187,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_ja);
                 long long temp_cmd = cmd_ja;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -226,7 +210,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_jae);
                 long long temp_cmd = cmd_jae;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -249,7 +233,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_jb);
                 long long temp_cmd = cmd_jb;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
                 if (strchr(cmd, ':'))
                 {
                     cmd_array[cmd_counter] = TakeLabel(labels, cmd);
@@ -271,7 +255,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_jbe);
                 long long temp_cmd = cmd_jbe;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -294,7 +278,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_je);
                 long long temp_cmd = cmd_je;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -317,7 +301,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_jne);
                 long long temp_cmd = cmd_jne;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(double));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -340,7 +324,7 @@ fprintf(stderr, "before while\n");
                 if(err) err = fprintf(machFile, "%d ", cmd_call);
                 long long temp_cmd = cmd_call;
                 memcpy(&(cmd_array[cmd_counter++]), &temp_cmd, sizeof(long long int));
-                cmd = cmds_indexes[asmIp++].string_start;
+                cmd = cmds_indexes[asmIp++].line_start;
 
                 if (strchr(cmd, ':'))
                 {
@@ -385,13 +369,6 @@ fprintf(stderr, "before while\n");
             err = 0;
         }
 
-        ///////////////////////////////////
-        // for (int i = 0; i < nCommands; i++)
-        // {
-        //      fprintf(stderr, "%llu %lg\n", cmd_array[i], cmd_array[i]);
-        // }
-        // ////////////////////////////////
-
         fseek(machFile, txt_sizeptr, SEEK_SET);
         fprintf(machFile, "%0*x\n", 8, nCommands);
 
@@ -434,8 +411,15 @@ int FillReg(char* cmd)
 
 void BinWrite(double* cmd_array, const char* BinFileName, u_int32_t nCommands)
 {
-    FILE* binFile = fopen(BinFileName, "wb"); assert(binFile);//TODO: обработать fopen без ассерта 
+    FILE* binFile = fopen(BinFileName, "wb");// assert(binFile);//TODO: обработать fopen без ассерта 
+    if (binFile == NULL)
+    {
+        
+        return;
+    }
     
+
+
     fwrite(&signatura, sizeof(u_int32_t), 1, binFile); //TODO: if(fwrite == 0) goto close
     fwrite(&ass_version, sizeof(int), 1, binFile);
     fwrite(&nCommands, sizeof(u_int32_t), 1, binFile);
@@ -497,18 +481,18 @@ void MakeLabel(labelArray_t* lblarr, char* labelName, int lineNumber)
     lblarr->used_labels++;
 }
 
-double TakeLabel(labelArray_t* lblarr, char* labelName)
-{
-    double ret_line;
-    for (int i = 0; i < lblarr->used_labels; i++)
-    {
-        if (strcmp(labelName, lblarr->array[i].label_name) == 0)
-        {
-            return double(lblarr->array[i].line_number);
-        }
-    }
-    return -1;
-}
+// double TakeLabel(labelArray_t* lblarr, char* labelName)
+// {
+//     double ret_line;
+//     for (int i = 0; i < lblarr->used_labels; i++)
+//     {
+//         if (strcmp(labelName, lblarr->array[i].label_name) == 0)
+//         {
+//             return double(lblarr->array[i].line_number);
+//         }
+//     }
+//     return -1;
+// }
 
 int    IsLabel (labelArray_t* lblarr, char* labelName)
 {
@@ -641,6 +625,7 @@ int WritePushArgs(char* cmd, FILE* machFile, double* cmd_array, int* cmd_counter
             if (reg != -1)
             {
                 fprintf(stderr, "WRONG SYNTAX!!!\n");
+                return 0;
             }
             else
             {
@@ -791,4 +776,6 @@ int    WritePopArgs (char* cmd, FILE* machFile, double* cmd_array, int* cmd_coun
 
     return 1;
 }
+
+
 
