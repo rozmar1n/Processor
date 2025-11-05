@@ -1,39 +1,82 @@
-#include"processor.h"
+#include "processor/processor.h"
 const int BufferSize = 25;
 const int InfoSize = 16;
 
-void  MakeBinSPU (const char *binFile, SPU_t *SPU)
+bool  MakeBinSPU (const char *binFile, SPU_t *SPU)
 {
-    FILE* machCode = fopen(binFile, "rb"); assert(machCode);
+    if (binFile == NULL || SPU == NULL)
+    {
+        fprintf(stderr, "MakeBinSPU: invalid arguments\n");
+        return false;
+    }
+
+    FILE* machCode = fopen(binFile, "rb");
+    if (machCode == NULL)
+    {
+        fprintf(stderr, "MakeBinSPU: unable to open '%s'\n", binFile);
+        return false;
+    }
     
     u_int32_t signature = 0;
-    fread(&signature, sizeof(u_int32_t), 1, machCode);
-    //fprintf(stderr, "signature: %u\n", signature);
+    if (fread(&signature, sizeof(u_int32_t), 1, machCode) != 1)
+    {
+        fprintf(stderr, "MakeBinSPU: failed to read signature\n");
+        fclose(machCode);
+        return false;
+    }
     if (signature != signatura)
     {
-        fprintf(stderr, "THIS SPU CANNOT WORK WITH THIS FILES\n");
-        assert(signature != signatura);
+        fprintf(stderr, "MakeBinSPU: unsupported signature (got %u, expected %u)\n",
+                signature, signatura);
+        fclose(machCode);
+        return false;
     }
     
     int ass_version = 0;
-    fread(&ass_version, sizeof(int), 1, machCode);
+    if (fread(&ass_version, sizeof(int), 1, machCode) != 1)
+    {
+        fprintf(stderr, "MakeBinSPU: failed to read assembler version\n");
+        fclose(machCode);
+        return false;
+    }
     if (ass_version != procVersion)
     {
-        fprintf(stderr, "THIS SPU CANNOT WORK WITH "
-                        "THIS VERSION OF ASSEMBLY\n");
-        assert(ass_version != procVersion);
+        fprintf(stderr, "MakeBinSPU: incompatible versions (file %d, processor %d)\n",
+                ass_version, procVersion);
+        fclose(machCode);
+        return false;
     }
-    //fprintf(stderr, "ass_version: %d\n", ass_version);
 
     u_int32_t nComands = 0;
-    fread(&nComands, sizeof(u_int32_t), 1, machCode);
-    //fprintf(stderr, "nCommands: %u\n", nComands);
+    if (fread(&nComands, sizeof(u_int32_t), 1, machCode) != 1)
+    {
+        fprintf(stderr, "MakeBinSPU: failed to read command count\n");
+        fclose(machCode);
+        return false;
+    }
 
-    SPU->cmds = (double*)calloc(nComands + 100, sizeof(double));
+    double* buffer = (double*)calloc(nComands + 100, sizeof(double));
+    if (buffer == NULL)
+    {
+        fprintf(stderr, "MakeBinSPU: out of memory for %u commands\n", nComands);
+        fclose(machCode);
+        return false;
+    }
 
-    fread(SPU->cmds, sizeof(double), nComands, machCode);
-    
+    size_t read = fread(buffer, sizeof(double), nComands, machCode);
     fclose(machCode);
+    if (read != nComands)
+    {
+        fprintf(stderr, "MakeBinSPU: expected %u commands, read %zu\n", nComands, read);
+        free(buffer);
+        return false;
+    }
+    
+    free(SPU->cmds);
+    SPU->cmds = buffer;
+    SPU->ip   = 0;
+
+    return true;
 }
 
 void add_f(SPU_t *SPU) // prefix
@@ -232,8 +275,12 @@ void out_f(SPU_t *SPU)
     double a = NAN;
     StackPop(&(SPU->stk), &a);
     assert(a != NAN);
-    fprintf(SPU->logfile, "\tOUT: %lg\n", a);
-    fprintf(stderr      , "\tOUT: %lg\n", a);
+    if (SPU->logfile)
+    {
+        fprintf(SPU->logfile, "\tOUT: %lg\n", a);
+    }
+    fprintf(stdout, "\tOUT: %lg\n", a);
+    fflush(stdout);
     SPU->ip += 1;
 }
 
@@ -246,13 +293,20 @@ void print_f(SPU_t *SPU)
 
     if (a < 0.00001)
     {
-        fprintf(SPU->logfile, "  ");
-        fprintf(stderr      , "  ");
+        if (SPU->logfile)
+        {
+            fprintf(SPU->logfile, "  ");
+        }
+        fprintf(stdout      , "  ");
     }
     else
     {
-        fprintf(SPU->logfile, "%c ", (char)(a));
-        fprintf(stderr      , "%c ", (char)(a));
+        if (SPU->logfile)
+        {
+            fprintf(SPU->logfile, "%c ", (char)(a));
+        }
+        fprintf(stdout, "%c ", (char)(a));
+        fflush(stdout);
     }
     SPU->ip += 1;
 }
@@ -356,12 +410,20 @@ void pop_mpm_f(SPU_t *SPU)
 }
 void Run(SPU_t *SPU)
 {
+    if (SPU == NULL || SPU->cmds == NULL)
+    {
+        fprintf(stderr, "Run: no program loaded\n");
+        return;
+    }
     int runCond = 0;
     int64_t t_cmd = 6669;
     while(runCond == 0)
     {
         memcpy(&t_cmd, &(SPU->cmds[SPU->ip]), sizeof(int64_t));
-        fprintf(SPU->logfile, "cmd: %ld\n", t_cmd);
+        if (SPU->logfile)
+        {
+            fprintf(SPU->logfile, "cmd: %ld\n", t_cmd);
+        }
         //fprintf(stderr, "cmd: %ld\n", t_cmd);
         if ((t_cmd & 240))
         {   
@@ -396,14 +458,28 @@ void Run(SPU_t *SPU)
                 break;
             }
             case cmd_hlt: {
+                if (SPU->logfile)
+                {
+                    fprintf(SPU->logfile, "The program has finished.\n");
+                }
                 StackDtor(&(SPU->stk));
                 StackDtor(&(SPU->proc_stk));
                 free(SPU->ram);
                 free(SPU->cmds);
                 free(SPU->registers);
-                fclose(SPU->logfile);
+                if (SPU->logfile)
+                {
+                    if (SPU->logfile != stderr)
+                    {
+                        fclose(SPU->logfile);
+                    }
+                    else
+                    {
+                        fflush(stderr);
+                    }
+                }
+                SPU->logfile = NULL;
                 runCond = 1;
-                fprintf(SPU->logfile, "The programm is end!!!\n");
                 break;
             }
             case cmd_dump: {
@@ -581,7 +657,7 @@ SPU_t MakeNullSPU()
     NullSPU.proc_stk  = null_proc_stk;
     NullSPU.registers = (double*)calloc(nRegisters, sizeof(double));
     NullSPU.ram       = (double*)calloc(ram_volume, sizeof(double));
-    NullSPU.logfile   = fopen("log.txt", "w");
+    NullSPU.logfile   = NULL;
 
     return NullSPU;
 }

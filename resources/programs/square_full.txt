@@ -1,0 +1,91 @@
+in
+pop ax
+in
+pop bx
+in 
+pop cx
+
+push ax
+push 0
+je LINE:
+
+push bx
+push 0
+je NULL_B:
+
+push cx
+push 0
+je NULL_C:
+
+push bx
+push bx
+mul
+push 4
+push ax
+mul
+push cx
+mul
+sub
+sqrt
+pop dx
+
+push -1
+push bx
+mul
+push dx
+add
+push 2
+push ax
+mul
+div 
+out
+
+push dx
+push -1
+push bx
+mul
+add
+push 2
+push ax
+mul
+div 
+out
+jmp END:
+
+NULL_B:
+push -1
+push cx
+mul
+push ax
+div
+sqrt
+pop ex
+push ex
+out
+push ex
+push -1
+mul
+out
+jmp END:
+
+NULL_C:
+push 0
+out
+push bx
+push ax
+div
+push -1
+mul
+out
+jmp END:
+
+LINE:
+push -1
+push cx
+mul
+push bx
+div
+out
+
+END:
+hlt  

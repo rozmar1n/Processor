@@ -1,0 +1,33 @@
+push 72
+pop [0]
+push 69
+pop [1]
+push 76
+pop [2]
+push 76
+pop [3]
+push 79 
+pop [4]
+
+
+
+push 0
+pop ax
+push 4
+
+TYPE:
+push [ax]
+print
+
+push 1
+push ax
+add
+pop ax
+
+push ax
+push 4
+jbe TYPE: 
+
+
+
+hlt

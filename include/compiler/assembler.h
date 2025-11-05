@@ -1,15 +1,15 @@
 #ifndef assm_h
 #define assm_h
 
-
-#include <string.h>
-
 #include <assert.h>
 #include <memory.h>
 #include <stdbool.h>
-#include "../../instructions.h"
-#include "../../onegin/ForIndexes.h"
-#include "commands.h"
+#include <stdio.h>
+#include <string.h>
+
+#include "common/instructions.h"
+#include "common/onegin/ForIndexes.h"
+#include "compiler/commands.h"
 
 
 const int       ass_version      = 2;

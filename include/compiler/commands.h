@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <memory.h>
-#include "../../onegin/struct.h"
-#include "../../instructions.h"
+
+#include "common/instructions.h"
+#include "common/onegin/struct.h"
 
 struct label_t
 {
@@ -18,6 +19,7 @@ struct labelArray_t
 {
     label_t*  array;
     u_int32_t used_labels;
+    u_int32_t capacity;
 };
 
 struct interest

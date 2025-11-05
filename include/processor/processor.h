@@ -1,12 +1,14 @@
 #ifndef processor_h
 #define processor_h
 
-#include "instructions.h"
-#include <stdio.h>
-#include "Stack/Stack.h"
-#include <math.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+
+#include "common/instructions.h"
+#include "common/stack/Stack.h"
 
 const int nRegisters = 8;
 const int procVersion = 2;
@@ -23,7 +25,7 @@ struct SPU_t
     FILE*      logfile;
 };
 
-void  MakeBinSPU (const char *binFile, SPU_t *SPU);
+bool  MakeBinSPU (const char *binFile, SPU_t *SPU);
 void  Run        (SPU_t *SPU);
 SPU_t MakeNullSPU();
 #endif //processor

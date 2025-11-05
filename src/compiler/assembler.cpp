@@ -1,4 +1,4 @@
-#include"../headers/assembler.h"
+#include "compiler/assembler.h"
 //TODO вынести 100000 в const и сделать степенью двойки
 
 
@@ -40,14 +40,11 @@ bool MakeMachCode(const char* ProgramFile, const char* cmdFile, const char* logF
 
 
 
-fprintf(stderr, "before while\n");
     for(int i = 0; i < amountOfCommands; i++)
     {
         if(err && asmIp < amountOfCommands)
         {
             cmd = cmds_indexes[asmIp++].line_start; 
-            
-            fprintf(stderr, "%s\n", cmd);
             if (strcmp(cmd, "push") == 0)
             {
                 cmd = cmds_indexes[asmIp++].line_start;
@@ -367,47 +364,35 @@ fprintf(stderr, "before while\n");
                 continue;
             }
             err = 0;
+            break;
         }
 
-        fseek(machFile, txt_sizeptr, SEEK_SET);
-        fprintf(machFile, "%0*x\n", 8, nCommands);
+    }
 
-        fclose(machFile);
+    fseek(machFile, txt_sizeptr, SEEK_SET);
+    fprintf(machFile, "%0*x\n", 8, nCommands);
 
-        fprintf(stderr, "first dump: \n");
-        LabelDump(labels);
-        if (iter == 2)
+    fclose(machFile);
+
+    if (iter == 2)
+    {
+        if (err != 0)
         {
             BinWrite(cmd_array, cmdFile, nCommands);
-            LabelDtor(labels);
         }
-        fprintf(stderr, "second dump: \n");
-        LabelDump(labels);
-        return;
-        }   
-}
-
-
-int FillReg(char* cmd)
-{
-    if(strchr(cmd, 'x'))
-    {
-        if (strchr(cmd, 'a')) return ax;
-        if (strchr(cmd, 'b')) return bx;
-        if (strchr(cmd, 'c')) return cx;
-        if (strchr(cmd, 'd')) return dx;
-        if (strchr(cmd, 'e')) return ex;
-        if (strchr(cmd, 'f')) return fx;
-        if (strchr(cmd, 'g')) return gx;
-        if (strchr(cmd, 'h')) return hx;
-        
-        return -1;
+        else
+        {
+            free(cmd_array);
+        }
+        LabelDtor(labels);
     }
     else
     {
-        return -1;
+        free(cmd_array);
     }
+    return err != 0;
 }
+
 
 void BinWrite(double* cmd_array, const char* BinFileName, u_int32_t nCommands)
 {
@@ -431,41 +416,49 @@ void BinWrite(double* cmd_array, const char* BinFileName, u_int32_t nCommands)
     fwrite(cmd_array, sizeof(double), nCommands, binFile);//TODO: обработать 
     fclose(binFile);
     
-    fprintf(stderr, "\n\n\n\t\033[46mArrayDump\033[0m\n");
-    for (int i = 0; i < nCommands; i++)
-    {
-        fprintf(stderr, "%lg  ", cmd_array[i]);
-    }
-    
     free(cmd_array);
 }
 
 void LabelCtor(labelArray_t* lblarr, int nlabels)
 {
-    lblarr->array = (label_t*)calloc(nlabels, sizeof(label_t));
-    lblarr->used_labels = 0;
-    for (size_t i = 0; i < nlabels; i++)
+    const int initial_capacity = (nlabels > 0) ? nlabels : 1;
+    lblarr->array = (label_t*)calloc(initial_capacity, sizeof(label_t));
+    if (!lblarr->array)
     {
-        for (size_t j = 0; j < 128; j++)
-        {
-            lblarr->array[i].label_name[j] = '\0';
-        }
-        lblarr->array[i].line_number = -1;
+        lblarr->capacity = 0;
+        lblarr->used_labels = 0;
+        return;
+    }
+
+    lblarr->capacity    = initial_capacity;
+    lblarr->used_labels = 0;
+    for (int i = 0; i < initial_capacity; i++)
+    {
+        lblarr->array[i].label_name[0] = '\0';
+        lblarr->array[i].line_number   = -1;
     }
 }
 
 void LabelDtor(labelArray_t* lblarr)
 {
     free(lblarr->array);
-    lblarr->used_labels = -1;
+    lblarr->array       = NULL;
+    lblarr->used_labels = 0;
+    lblarr->capacity    = 0;
 }
 
 void LabelDump(labelArray_t* lblarr)
 {
+    if (lblarr->array == NULL)
+    {
+        fprintf(stderr, "LabelDump: no labels allocated\n");
+        return;
+    }
+
     fprintf(stderr, "-----------------------------------------------------------------------------------------------------------------------------------------------------\n"
                     "\n//////////---LabelDump---//////////\n");
     
-    for (int i = 0; i < amount_of_labels; i++)
+    for (u_int32_t i = 0; i < lblarr->capacity; i++)
     {
         fprintf(stderr, "lbl name: %s; line_number: %d\n", lblarr->array[i].label_name, lblarr->array[i].line_number);
     }
@@ -475,8 +468,27 @@ void LabelDump(labelArray_t* lblarr)
 
 void MakeLabel(labelArray_t* lblarr, char* labelName, int lineNumber)
 {
+    if (lblarr->used_labels >= lblarr->capacity)
+    {
+        u_int32_t new_capacity = (lblarr->capacity == 0) ? 1 : lblarr->capacity * 2;
+        label_t* new_array = (label_t*)realloc(lblarr->array, new_capacity * sizeof(label_t));
+        if (!new_array)
+        {
+            fprintf(stderr, "Label allocation failed, label %s ignored\n", labelName);
+            return;
+        }
+        for (u_int32_t i = lblarr->capacity; i < new_capacity; i++)
+        {
+            new_array[i].label_name[0] = '\0';
+            new_array[i].line_number   = -1;
+        }
+        lblarr->array    = new_array;
+        lblarr->capacity = new_capacity;
+    }
+
     //*(strchr(labelName, ':')) = '\0';
-    strcpy(lblarr->array[lblarr->used_labels].label_name, labelName);
+    strncpy(lblarr->array[lblarr->used_labels].label_name, labelName, max_label_name - 1);
+    lblarr->array[lblarr->used_labels].label_name[max_label_name - 1] = '\0';
     lblarr->array[lblarr->used_labels].line_number = lineNumber;
     lblarr->used_labels++;
 }
@@ -505,277 +517,3 @@ int    IsLabel (labelArray_t* lblarr, char* labelName)
     }
     return 0;
 }
-
-int WritePushArgs(char* cmd, FILE* machFile, double* cmd_array, int* cmd_counter, u_int32_t *nCommands)
-{
-    double    PushArg = 0;
-    u_int64_t PushCmd = 0;
-    if (strchr(cmd, '['))
-    {
-        *(strchr(cmd, '[')) = '\0';
-        cmd = cmd + 1;
-        if(strchr(cmd, ']'))
-        {
-            *(strchr(cmd, ']')) = '\0';
-            PushCmd += 4;
-            if (strchr(cmd, '+'))
-            {
-                char* plus_ptr = strchr(cmd, '+');
-                *plus_ptr = '\0';
-
-                PushCmd += 3;
-
-                fprintf(machFile, "%lu ", PushCmd);
-                memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-
-                *plus_ptr = '\0';
-                int reg = -1;
-                reg = FillReg(cmd);
-                if (reg != -1)
-                {
-                    fprintf(machFile, "%d ", reg);
-                    cmd_array[(*cmd_counter)++] = reg;
-                }
-                else
-                {
-                    fprintf(machFile, "%s ", cmd);
-                    cmd_array[(*cmd_counter)++] = atof(cmd);
-                }
-
-                reg = FillReg(plus_ptr + 1);
-                if (reg != -1)
-                {
-                    fprintf(stderr, "WRONG SYNTAX!!!\n");
-                }
-                else
-                {
-                    fprintf(machFile, "%s ", plus_ptr + 1);
-                    cmd_array[(*cmd_counter)++] = atof(plus_ptr + 1);
-                }
-
-                (*nCommands) += 3; 
-            }
-            else
-            {
-                PushCmd += 1;
-                int reg = -1;
-                reg = FillReg(cmd);
-                if (reg != -1)
-                {
-                    //fprintf(stderr, "not null register!!!\n");
-                    //fprintf(stderr, "register: %d ", reg);
-                    
-                    PushCmd += 1;
-                    fprintf(machFile, "%lu ", PushCmd);
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-                    fprintf(machFile, "%d ", reg);
-
-                    cmd_array[*cmd_counter] = (double)reg;
-                    (*cmd_counter)++;
-
-                    (*nCommands) += 2;
-                }
-                else
-                {
-                    fprintf(machFile, "%lu ", PushCmd);
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-
-                    fprintf(machFile, "%s ", cmd);
-                    cmd_array[*cmd_counter] = atof(cmd);
-                    (*cmd_counter)++;
-
-                    (*nCommands) += 2;
-                }
-            }
-            
-        }
-        else
-        {
-            fprintf(stderr, "\nWRONG SYNTAX\n");
-            return 0;
-        }
-        
-    }
-    else
-    {
-        if (strchr(cmd, '+'))
-        {
-            char* plus_ptr = strchr(cmd, '+');
-            *plus_ptr = '\0';
-            
-            PushCmd += 3;
-
-            fprintf(machFile, "%d ", cmd_push_pushr);
-            memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-            
-            int reg = -1;
-            reg = FillReg(cmd);
-            if (reg != -1)
-            {
-                fprintf(machFile, "%d ", reg);
-                cmd_array[(*cmd_counter)++] = reg;
-            }
-            else
-            {
-                fprintf(machFile, "%s ", cmd);
-                cmd_array[(*cmd_counter)++] = atof(cmd);
-            }
-
-            reg = FillReg(plus_ptr + 1);
-            if (reg != -1)
-            {
-                fprintf(stderr, "WRONG SYNTAX!!!\n");
-                return 0;
-            }
-            else
-            {
-                fprintf(machFile, "%s ", plus_ptr + 1);
-                cmd_array[(*cmd_counter)++] = atof(plus_ptr + 1);
-            }
-
-            (*nCommands) += 3;
-        }
-        else
-        {
-            int reg = -1;
-            reg = FillReg(cmd);
-            if (reg != -1)
-            {
-                PushCmd += 2;
-                fprintf(machFile, "%lu ", PushCmd);
-                memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-                fprintf(machFile, "%d ", reg);
-                (u_int64_t)reg;
-                cmd_array[*cmd_counter] = reg;
-                (*cmd_counter)++;
-                (*nCommands) += 2;
-            }
-            else
-            {
-                PushCmd += 1;
-                fprintf(machFile, "%lu ", PushCmd);
-                memcpy(&(cmd_array[(*cmd_counter)++]), &PushCmd, sizeof(long long int));
-                fprintf(machFile, "%s ", cmd);
-                cmd_array[*cmd_counter] = atof(cmd);
-                (*cmd_counter)++;
-
-                (*nCommands) += 2;
-            }
-        }
-    }
-    return 1;
-}
-
-int    WritePopArgs (char* cmd, FILE* machFile, double* cmd_array, int* cmd_counter, u_int32_t *nCommands)
-{
-    double popArg = 999;
-    u_int64_t popCmd = 8;
-
-    if(strchr(cmd, '['))
-    {
-        *(strchr(cmd, '[')) = '\0';
-        cmd += 1;
-        if (strchr(cmd, ']'))
-        {
-            popCmd += 4;
-            *strchr(cmd, ']') = '\0';
-
-            if (strchr(cmd, '+'))
-            {
-                char* plus_ptr = strchr(cmd, '+');
-                *plus_ptr = '\0';
-                plus_ptr += 1;
-                
-                (*nCommands) += 3;
-
-                popArg = FillReg(cmd);
-                if (popArg > -1)
-                {
-                    popCmd += 1;
-
-                    fprintf(machFile, "%lg %lu ", popArg, popCmd);
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &popCmd, sizeof(u_int64_t));
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &popArg, sizeof(  int64_t));
-
-                }
-                else
-                {
-                    popArg = atof(cmd);
-                    popCmd += 3;
-
-                    fprintf(machFile, "%lg %lu ", popArg, popCmd);
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &popCmd, sizeof(u_int64_t));
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &popArg, sizeof(  int64_t));
-                }
-
-                popArg = FillReg(plus_ptr);
-                if (popArg > -1)
-                {
-                    popCmd = -1;
-                    popArg = -1;
-                    return -1;
-
-                }
-                else
-                {
-                    popArg = atof(plus_ptr);
-                    fprintf(machFile, "%lg %lu ", popArg, popCmd);
-                    memcpy(&(cmd_array[(*cmd_counter)++]), &popArg, sizeof(  int64_t));
-                    return 1;
-                }
-                
-            }
-            else
-            {
-                popArg = FillReg(cmd);
-                if (popArg > -1)
-                {
-                    popCmd +=2;
-
-                    fprintf(machFile, "%lu %lg ", popCmd, popArg);
-                }
-                else 
-                {
-                    popArg = atof(cmd);
-
-                    fprintf(machFile, "%lu %lg ", popCmd, popArg);
-                }
-
-                (*nCommands) +=2;
-            }
-        }
-        else
-        {
-            fprintf(stderr, "WRONG SYNTAX");
-            popArg = -1;
-            popCmd = -1;
-
-            return -1;
-        }
-    }
-    else
-    {
-        popArg = FillReg(cmd);
-        if (popArg != -1)
-        {
-            fprintf(machFile, "%lu %lg ", popCmd, popArg);
-            (*nCommands) += 2;
-        }
-        else
-        {
-            fprintf(stderr, "UNDEFINED COMMAND!!!\n");
-            popCmd = -1;
-            popArg = -1;
-
-            return -1;
-        }
-        
-    }
-    memcpy(&(cmd_array[(*cmd_counter)++]), &popCmd, sizeof(u_int64_t));
-    memcpy(&(cmd_array[(*cmd_counter)++]), &popArg, sizeof(  int64_t));
-
-    return 1;
-}
-
-
-

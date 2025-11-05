@@ -1,8 +1,12 @@
 *.o
-*.txt
+*.log
 proc
 test*
-*.log
-onegin/
-Stack/
 circle.asm
+
+# Build directories
+/build/
+/cmake-build-*/
+
+# Generated assembler programs are kept under resources/.
+!resources/programs/*.txt

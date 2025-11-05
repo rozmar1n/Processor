@@ -1,4 +1,33 @@
-#include "../headers/commands.h"
+#include "compiler/commands.h"
+#include "compiler/assembler.h"
+
+static bool EmitJumpWithOperand(interest* data, int opcode)
+{
+    if (data == NULL || data->machFile == NULL || data->cmds_indexes == NULL)
+    {
+        return false;
+    }
+
+    fprintf(data->machFile, "%d ", opcode);
+    long long temp_cmd = opcode;
+    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
+
+    *data->cmd = data->cmds_indexes[(*data->asmIp)++].line_start;
+    if (strchr(*data->cmd, ':'))
+    {
+        data->cmd_array[*data->cmd_counter] = TakeLabel(data->labels, *data->cmd);
+        fprintf(data->machFile, "%lg ", data->cmd_array[*data->cmd_counter]);
+    }
+    else
+    {
+        data->cmd_array[*data->cmd_counter] = atof(*data->cmd);
+        fprintf(data->machFile, "%s ", *data->cmd);
+    }
+
+    (*data->cmd_counter)++;
+    (*data->nCommands) += 2;
+    return true;
+}
 
 bool WritePush(interest* data)
 {
@@ -24,6 +53,7 @@ bool WriteAdd(interest* data)
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
 
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteSub(interest* data)
@@ -32,6 +62,7 @@ bool WriteSub(interest* data)
     long long temp_cmd = cmd_sub;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteMul(interest* data)
@@ -40,6 +71,7 @@ bool WriteMul(interest* data)
     long long temp_cmd = cmd_mul;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteDiv(interest* data)
@@ -48,6 +80,7 @@ bool WriteDiv(interest* data)
     long long temp_cmd = cmd_div;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteOut(interest* data)
@@ -56,6 +89,7 @@ bool WriteOut(interest* data)
     long long temp_cmd = cmd_out;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteIn(interest* data)
@@ -64,6 +98,7 @@ bool WriteIn(interest* data)
     long long int temp_cmd = cmd_in;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteSqrt(interest* data)
@@ -72,6 +107,7 @@ bool WriteSqrt(interest* data)
     long long temp_cmd = cmd_sqrt;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteSin(interest* data)
@@ -80,6 +116,7 @@ bool WriteSin(interest* data)
     long long temp_cmd = cmd_sin;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteCos  (interest* data)
@@ -88,6 +125,7 @@ bool WriteCos  (interest* data)
     long long temp_cmd = cmd_cos;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteDump (interest* data)
@@ -96,96 +134,86 @@ bool WriteDump (interest* data)
     long long temp_cmd = cmd_dump;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteHult (interest* data)
 {
-    fprintf(data->machFile, "%d ", cmd_dump);
-    long long temp_cmd = cmd_dump;
+    fprintf(data->machFile, "%d ", cmd_hlt);
+    long long temp_cmd = cmd_hlt;
     memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
     (*data->nCommands)++;
+    return true;
 }
 
 bool WriteJump (interest* data)
 {
-    fprintf(data->machFile, "%d ", cmd_jmp);
-    long long temp_cmd = cmd_jmp;
-    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
-    (*data->cmd) = data->cmds_indexes[(*data->asmIp)++].line_start;
-    if (strchr(*data->cmd, ':'))
-    {
-        data->cmd_array[*data->cmd_counter] = TakeLabel(data->labels, *data->cmd);
-        fprintf(data->machFile, "%lg ", data->cmd_array[*data->cmd_counter]);
-        (*data->cmd_counter)++;
-    }
-    else
-    {
-        data->cmd_array[*data->cmd_counter] = atof(*data->cmd);
-        (*data->cmd_counter)++;
-        fprintf(data->machFile, "%s ", *data->cmd);
-    }
-    (*data->nCommands) += 2;
+    return EmitJumpWithOperand(data, cmd_jmp);
 }
 
 bool WriteJa (interest* data)
 {
-    fprintf(data->machFile, "%d ", cmd_ja);
-    long long temp_cmd = cmd_ja;
-    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
-    *data->cmd = data->cmds_indexes[(*data->asmIp)++].line_start;
-    if (strchr(*data->cmd, ':'))
-    {
-        data->cmd_array[*data->cmd_counter] = TakeLabel(data->labels, *data->cmd);
-        fprintf(data->machFile, "%lg ", data->cmd_array[*data->cmd_counter]);
-        data->cmd_counter++;
-    }
-    else
-    {
-        data->cmd_array[*data->cmd_counter] = atof(*data->cmd);
-        data->cmd_counter++;
-        fprintf(data->machFile, "%s ", data->cmd);
-    }
-    *data->nCommands += 2;
+    return EmitJumpWithOperand(data, cmd_ja);
 }
 
 bool WriteJae  (interest* data)
 {
-    fprintf(data->machFile, "%d ", cmd_jae);
-    long long temp_cmd = cmd_jae;
-    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
-    *data->cmd = data->cmds_indexes[(*data->asmIp)++].line_start;
-
-    if (strchr(*data->cmd, ':'))
-    {
-        data->cmd_array[*data->cmd_counter] = TakeLabel(data->labels, *data->cmd);
-        fprintf(data->machFile, "%lg ", data->cmd_array[*data->cmd_counter]);
-        (*data->cmd_counter)++;
-    }
-    else
-    {
-        data->cmd_array[*data->cmd_counter] = atof(*data->cmd);
-        *(data->cmd_counter)++;
-        fprintf(data->machFile, "%s ", *data->cmd);
-    }
-
-    (*data->nCommands) += 2;
+    return EmitJumpWithOperand(data, cmd_jae);
 }
 
-bool WriteJb   (interest* data);
+bool WriteJb(interest* data)
+{
+    return EmitJumpWithOperand(data, cmd_jb);
+}
 
-bool WriteJbe  (interest* data);
+bool WriteJbe(interest* data)
+{
+    return EmitJumpWithOperand(data, cmd_jbe);
+}
 
-bool WriteJe   (interest* data);
+bool WriteJe(interest* data)
+{
+    return EmitJumpWithOperand(data, cmd_je);
+}
 
-bool WriteJne  (interest* data);
+bool WriteJne(interest* data)
+{
+    return EmitJumpWithOperand(data, cmd_jne);
+}
 
-bool WriteCall (interest* data);
+bool WriteCall(interest* data)
+{
+    return EmitJumpWithOperand(data, cmd_call);
+}
 
-bool WriteRet  (interest* data);
+bool WriteRet(interest* data)
+{
+    fprintf(data->machFile, "%d ", cmd_ret);
+    long long temp_cmd = cmd_ret;
+    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
+    (*data->nCommands)++;
+    return true;
+}
 
-bool WriteLabel(interest* data);
+bool WriteLabel(interest* data)
+{
+    if (data == NULL || data->labels == NULL || data->cmds_indexes == NULL)
+    {
+        return false;
+    }
+    *data->cmd = data->cmds_indexes[(*data->asmIp)++].line_start;
+    MakeLabel(data->labels, *data->cmd, (int)(*data->nCommands));
+    return true;
+}
 
-bool WritePrint(interest* data); 
+bool WritePrint(interest* data)
+{
+    fprintf(data->machFile, "%d ", cmd_print);
+    long long temp_cmd = cmd_print;
+    memcpy(&(data->cmd_array[(*data->cmd_counter)++]), &temp_cmd, sizeof(long long int));
+    (*data->nCommands)++;
+    return true;
+}
 
 
 

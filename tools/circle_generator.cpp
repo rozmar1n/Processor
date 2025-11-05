@@ -1,9 +1,13 @@
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+
+#ifndef PROJECT_SOURCE_DIR
+#define PROJECT_SOURCE_DIR "."
+#endif
 
 int main()
 {    
-    FILE* logfile = fopen("circle.txt", "w");
+    FILE* logfile = fopen(PROJECT_SOURCE_DIR "/resources/programs/circle.txt", "w");
     double R = 0;
     printf("Enter R:\t");
     scanf("%lg", &R);
